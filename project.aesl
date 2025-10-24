@@ -12,7 +12,7 @@
 <constant value="3" name="BLOCKED"/>
 <constant value="300" name="EDGE"/>
 <constant value="300" name="TARGET"/>
-<constant value="1000" name="THRESHOLD"/>
+<constant value="1500" name="THRESHOLD"/>
 
 
 <!--show keywords state-->
@@ -20,7 +20,16 @@
 
 
 <!--node thymio-II-->
-<node nodeId="1" name="thymio-II">var state = STOPPED
+<node nodeId="1" name="thymio-II"># -----------------------------------
+# Lab 8 - Subroutines and Development Cycle 
+# -----------------------------------
+# Group 6:
+# Cole Smith-Evans 	B00903345
+# Cynthia Hayes 		B01051658
+# Alwin Tenkorang 	B01014380
+# Nathan Ikeme 		B01059341
+# -----------------------------------
+var state = STOPPED
 var min
 var max
 var mean
@@ -28,52 +37,59 @@ var mean
 motor.left.target = 0
 motor.right.target = 0
 
-onevent button.forward
-  state = LEFT
-
+onevent button.forward state = LEFT
 onevent button.backward
-  state = STOPPED
-  motor.left.target = 0
-  motor.right.target = 0
+  	state = STOPPED
+  	motor.left.target = 0
+  	motor.right.target = 0
 	
 onevent prox
-  call math.stat( prox.horizontal[0:4], min, max, mean )
+	# horizontal sensors detect blocks
+	call math.stat( prox.horizontal[0:4], min, max, mean )
   
-  if state != STOPPED then 
-  	if state == LEFT or state == RIGHT then
-  		if max > THRESHOLD then
-  			state = BLOCKED
-  			motor.left.target = 0
-  			motor.right.target = 0
+	if state != STOPPED then
+		
+		# basic line follow states
+		if state == LEFT or state == RIGHT then
+			if max > THRESHOLD then
+	  			state = BLOCKED
+	  			motor.left.target = 0
+	  			motor.right.target = 0
+  			end
   		end
-  	end
-  	
-  	if state == BLOCKED  and max &lt;= THRESHOLD then
-	  	if prox.ground.delta[0] >= EDGE then
-	      state = RIGHT
+  		
+  		# block detection logic
+	  	if state == BLOCKED  and max &lt;= THRESHOLD then
+	  		
+	  		# move to right state after unblocked
+		  	if prox.ground.delta[0] >= EDGE then
+		      state = RIGHT
+		      motor.left.target = TARGET
+		      motor.right.target = 0
+		   end
+			
+			# move to left state after unblocked
+		   if prox.ground.delta[0] &lt; EDGE then
+	      	state = LEFT
+	      	motor.left.target = 0
+	      	motor.right.target = TARGET
+	    	end
+	  	end
+  		
+  		# move to right state from left
+	  	if state == LEFT and  prox.ground.delta[0] >= EDGE then
+	   	state = RIGHT
 	      motor.left.target = TARGET
 	      motor.right.target = 0
-	    end
-	
-	   if prox.ground.delta[0] &lt; EDGE then
-      	state = LEFT
-      	motor.left.target = 0
-      	motor.right.target = TARGET
-    	end
-  	end
-  	
-    if state == LEFT and  prox.ground.delta[0] >= EDGE then
-      state = RIGHT
-      motor.left.target = TARGET
-      motor.right.target = 0
-    end
-    
-    if state == RIGHT and prox.ground.delta[0] &lt; EDGE then
-      state = LEFT
-      motor.left.target = 0
-      motor.right.target = TARGET
-    end    
-  end
+	   end
+	   
+	   # move to left state from right
+	   if state == RIGHT and prox.ground.delta[0] &lt; EDGE then
+	      state = LEFT
+	      motor.left.target = 0
+	      motor.right.target = TARGET
+	   end    
+	end
 
 </node>
 
