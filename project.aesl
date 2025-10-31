@@ -9,15 +9,15 @@
 <constant value="0" name="STOPPED"/>
 <constant value="1" name="LEFT"/>
 <constant value="2" name="RIGHT"/>
-<constant value="3" name="BLOCKED"/>
-<constant value="4" name="HARD_TURN"/>
-<constant value="300" name="EDGE"/>
-<constant value="200" name="TARGET"/>
-<constant value="1500" name="THRESHOLD"/>
-<constant value="700" name="HARD_TURN_THRESHOLD"/>
-<constant value="1" name="true"/>
-<constant value="0" name="false"/>
-<constant value="600" name="TURN_TIMER"/>
+<constant value="3" name="HARD_TURN"/>
+<constant value="4" name="AVOID"/>
+<constant value="300" name="TARGET"/>
+<constant value="300" name="HARD_TURN_SPEED"/>
+<constant value="300" name="HARD_TURN_THRESHOLD"/>
+<constant value="380" name="HARD_TURN_THRESHOLD2"/>
+<constant value="400" name="TURN_TIMER"/>
+<constant value="2000" name="AVOID_THRESHOLD"/>
+<constant value="560" name="TIME"/>
 
 
 <!--show keywords state-->
@@ -26,101 +26,158 @@
 
 <!--node thymio-II-->
 <node nodeId="1" name="thymio-II"># -----------------------------------
-# Midterm Project 
-# -----------------------------------
+# Midterm Project - Line Follower with Hard Turn Recovery
 # Group 6:
-# Cole Smith-Evans 	B00903345
-# Cynthia Hayes 		B01051658
-# Alwin Tenkorang 	B01014380
-# Nathan Ikeme 		B01059341
+# Cole Smith-Evans  B00903345
+# Cynthia Hayes      B01051658
+# Alwin Tenkorang    B01014380
+# Nathan Ikeme       B01059341
 # -----------------------------------
+
 var state = STOPPED
 var min
 var max
 var mean
+var diff
+var canDetectLine = 1
+var canHardTurn = 1
+var lastSide = LEFT
 
-var canHardTurn = true
+var avoidLoopCount = 0
 
 motor.left.target = 0
 motor.right.target = 0
 
-# ---------------------------------------------------------
-# Events
-# ---------------------------------------------------------
-onevent button.forward callsub EnterLeft
-onevent button.backward callsub EnterStop
+# Start moving left (button forward)
+onevent button.forward
+    callsub EnterLeft
+
+# Stop robot (button backward)
+onevent button.backward
+    callsub EnterStop
+
+# Proximity event - handle sensors and line following
 onevent prox
-	# horizontal sensors detect blocks
 	call math.stat( prox.horizontal[0:4], min, max, mean )
 	
-	if state != STOPPED then
+    if state != STOPPED then
+    		if canDetectLine == 1 then
+    			diff = prox.ground.delta[0] - prox.ground.delta[1]
+
+	        	#Stable normal turn
+		     	if diff &lt; -80 then callsub EnterLeft
+		     	elseif diff > 80 then callsub EnterRight end
+	        
+	        	#Lost line recovery
+	        	if prox.ground.delta[0] > HARD_TURN_THRESHOLD2 and prox.ground.delta[1] > HARD_TURN_THRESHOLD2 then
+	            if canHardTurn == 1 then
+	              	if lastSide == LEFT then callsub EnterHardRight
+	               else callsub EnterHardLeft end
+	            end
+	        	end
 	
-		# handle basic left and right turn following
-		if state != HARD_TURN then 			
-			if state == LEFT and prox.ground.delta[0] > prox.ground.delta[1] then callsub EnterRight
-	  		else 
-	  			if state == RIGHT and prox.ground.delta[0] &lt; prox.ground.delta[1] then callsub EnterLeft end
-	  			end
-		end
-		
-		# hard turn exit
-		if state == HARD_TURN then
-			if prox.ground.delta[0] &lt; HARD_TURN_THRESHOLD then callsub EnterRight end
-			if prox.ground.delta[1] &lt; HARD_TURN_THRESHOLD then callsub EnterLeft end
-		end
-		
-		if state == LEFT or state == RIGHT then
-			# if line falls off, try to hard turn to get back on
-  			if prox.ground.delta[0] > HARD_TURN_THRESHOLD and prox.ground.delta[1] > HARD_TURN_THRESHOLD then
-  				if canHardTurn == true then
-  					callsub EnterHardTurn
-  				end
-			end
-  		end
-	end
-	
+	        #After hard turn, recover gently to avoid staggering 
+	       if state == HARD_TURN then
+	        	if prox.ground.delta[0] &lt; HARD_TURN_THRESHOLD2 or prox.ground.delta[1] &lt; HARD_TURN_THRESHOLD2 then
+	         	motor.left.target = TARGET / 2
+	            motor.right.target = TARGET / 2
+	            state = RIGHT + LEFT    #neutral state
+	         end
+	       end
+    	end
+    		
+        
+        # avoidance states
+        if mean > AVOID_THRESHOLD and state != AVOID then
+        		callsub EnterAvoid
+        end
+     end
+
+
+# Timer event to allow new hard turn after a delay
 onevent timer0
-	timer.period[0] = 0
-	canHardTurn = true
+    timer.period[0] = 0
+    canHardTurn = 0
+    
+# Timer1 handles avoiding the blocks
+onevent timer1
+	timer.period[1] = 0
+	if avoidLoopCount &lt; 5 then
+		if avoidLoopCount %2 == 1 then
+			motor.left.target = TARGET
+			motor.right.target = -TARGET
+			timer.period[1] = TIME
+		else
+			motor.left.target = TARGET
+			motor.right.target = TARGET
+			timer.period[1] = (TIME * 2) + 100
+		end
+		
+		avoidLoopCount++
+		
+	else canDetectLine = 1 end
 	
 
-# ---------------------------------------------------------
-# Subroutines 
-# ---------------------------------------------------------
-
+# -----------------------------------------
+# functions
+# -----------------------------------------
 sub EnterLeft
-	state = LEFT
-	canHardTurn = false
-	timer.period[0] = TURN_TIMER
-	motor.left.target = 0
-	motor.right.target = TARGET
-	
+    state = LEFT
+    lastSide=LEFT
+    canHardTurn = 0
+    timer.period[0] = TURN_TIMER
+    motor.left.target = 0
+    motor.right.target = TARGET
+
 sub EnterRight
-	state = RIGHT
-	canHardTurn = false
-	timer.period[0] = TURN_TIMER
-	motor.left.target = TARGET
-	motor.right.target = 0
+    state = RIGHT
+    lastSide=RIGHT
+    canHardTurn = 0
+    timer.period[0] = TURN_TIMER
+    motor.left.target = TARGET
+    motor.right.target = 0
 
 sub EnterHardTurn
-	state = HARD_TURN
-	if state == LEFT then
-		motor.left.target = TARGET
-		motor.right.target = -TARGET
-	end
-	
-	if state == RIGHT then
-		motor.left.target = -TARGET
-		motor.right.target = TARGET
-	end
-	
+    state = HARD_TURN
+    canHardTurn = 0
+    timer.period[0] = TURN_TIMER
+    
+sub EnterHardLeft
+    state = HARD_TURN
+    lastSide = LEFT
+    motor.left.target = -TARGET
+    motor.right.target = TARGET
+
+sub EnterHardRight
+    state = HARD_TURN
+    lastSide = RIGHT
+    motor.left.target = TARGET
+    motor.right.target = -TARGET
+    
+
+    # Determine direction based on last state
+    if prox.ground.delta[0] > prox.ground.delta[1] then
+        # too far left → turn right
+        motor.left.target = HARD_TURN_SPEED
+        motor.right.target = -HARD_TURN_SPEED
+    else
+        # too far right → turn left
+        motor.left.target = -HARD_TURN_SPEED
+        motor.right.target = HARD_TURN_SPEED
+    end
+
 sub EnterStop
-	state = STOPPED
-  	motor.left.target = 0
-  	motor.right.target = 0
+    state = STOPPED
+    motor.left.target = 0
+    motor.right.target = 0
 	
-	
-	</node>
+sub EnterAvoid
+	state = AVOID
+	canDetectLine = 0
+	avoidLoopCount = 0
+	motor.left.target = -TARGET
+	motor.right.target = TARGET
+	timer.period[1] = TIME</node>
 
 
 </network>
