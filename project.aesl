@@ -19,13 +19,13 @@
 <constant value="300" name="HARD_TURN_THRESHOLD"/>
 <constant value="750" name="HARD_TURN_THRESHOLD2"/>
 <constant value="600" name="TURN_TIMER"/>
-<constant value="2000" name="AVOID_THRESHOLD"/>
-<constant value="560" name="TIME"/>
-<constant value="1000" name="HARD_TURN_LIMIT"/>
+<constant value="600" name="AVOID_THRESHOLD"/>
 <constant value="300" name="STRAIGHT_TIME"/>
+<constant value="1000" name="HARD_TURN_LIMIT"/>
 <constant value="500" name="AVOID_SPEED"/>
-<constant value="3000" name="BLOCK_DETECT"/>
-<constant value="3000" name="STOP_LINE_TIME"/>
+<constant value="1200" name="BLOCK_DETECT"/>
+<constant value="5000" name="STOP_LINE_TIME"/>
+<constant value="200" name="DIFF"/>
 
 
 <!--show keywords state-->
@@ -59,13 +59,15 @@ motor.right.target = 0
 onevent button.forward
     callsub EnterLeft
 
+
 # Stop robot (button backward)
 onevent button.backward
     callsub EnterStop
 
+
 # Proximity event - handle sensors and line following
 onevent prox
-	call math.stat( prox.horizontal[1:3], min, max, mean ) # compute stats on data
+	call math.stat( prox.horizontal[0:3], min, max, mean ) # compute stats on data
     if state != STOPPED then
     	# right avoid to left
 				if state == AVOID_RIGHT and prox.horizontal[4] > AVOID_THRESHOLD then
@@ -83,11 +85,11 @@ onevent prox
     			diff = prox.ground.delta[0] - prox.ground.delta[1]
     			
     			if state > 4 then
-    				if diff &lt; -100 then 
+    				if diff &lt; -DIFF then 
     					canDetectBlock = 0
     					callsub EnterLeft
     					timer.period[1] = 1000
-    				elseif diff > 100 then
+    				elseif diff > DIFF then
     					canDetectBlock = 0
 	    				callsub EnterRight
 	    				timer.period[1] = 1000	 
@@ -95,14 +97,15 @@ onevent prox
 	    		end
 
 	        	#Stable normal turn
-		     	if diff &lt; -100 then callsub EnterLeft
-		     	elseif diff > 100 then callsub EnterRight end
+		     	if diff &lt; -DIFF then callsub EnterLeft
+		     	elseif diff > DIFF then callsub EnterRight end
 	        
 	        	#Lost line recovery
 	        	if prox.ground.delta[0] > HARD_TURN_THRESHOLD2 and prox.ground.delta[1] > HARD_TURN_THRESHOLD2 and state != HARD_TURN_LEFT and state != HARD_TURN_RIGHT then
 	            if canHardTurn == 1 then
-	              	if lastSide == LEFT then callsub EnterHardRight
-	               else callsub EnterHardLeft end
+	            	callsub EnterHardLeft
+	              	#if lastSide == LEFT then callsub EnterHardRight
+	               #else callsub EnterHardLeft end
 	            end
 	        	end 
 	        	
@@ -110,7 +113,7 @@ onevent prox
 			   if max > BLOCK_DETECT and state &lt; 5 and canDetectBlock == 1 then
 			   	canHardTurn = 0
 			     	canDetectLine = 0
-			      callsub EnterAvoidRight
+			      callsub EnterAvoidLeft
 			      timer.period[0] = STOP_LINE_TIME
 			  	end
 	    	else
@@ -185,8 +188,9 @@ sub EnterHardRight
     lastSide = RIGHT
     motor.left.target = TARGET
     motor.right.target = -TARGET
-    timer.period[0] = HARD_TURN_LIMIT
+    #timer.period[0] = HARD_TURN_LIMIT
     call leds.circle(0,255,255,255,0,0,0,0)
+
 
 sub EnterStop
     state = STOPPED
@@ -207,8 +211,8 @@ sub EnterAvoidRight
 	
 sub EnterAvoidStraight
 	state = AVOID_STRAIGHT
-	motor.left.target = AVOID_SPEED
-	motor.right.target = AVOID_SPEED
+	motor.left.target = AVOID_SPEED - 100
+	motor.right.target = AVOID_SPEED - 100
 	timer.period[1] = STRAIGHT_TIME
 	call leds.circle(0,0,255,255,0,0,255,255)
 	
@@ -217,7 +221,9 @@ sub EnterAvoidLeft
 	state = AVOID_LEFT
 	motor.left.target = -AVOID_SPEED
 	motor.right.target = AVOID_SPEED
-	call leds.circle(0,0,0,0,0,0,255,255)</node>
+	call leds.circle(0,0,0,0,0,0,255,255)
+	
+	</node>
 
 
 </network>
