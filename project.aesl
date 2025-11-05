@@ -20,7 +20,7 @@
 <constant value="750" name="HARD_TURN_THRESHOLD2"/>
 <constant value="600" name="TURN_TIMER"/>
 <constant value="600" name="AVOID_THRESHOLD"/>
-<constant value="450" name="STRAIGHT_TIME"/>
+<constant value="500" name="STRAIGHT_TIME"/>
 <constant value="900" name="HARD_TURN_LIMIT"/>
 <constant value="500" name="AVOID_SPEED"/>
 <constant value="1200" name="BLOCK_DETECT"/>
