@@ -20,7 +20,7 @@
 <constant value="750" name="HARD_TURN_THRESHOLD2"/>
 <constant value="600" name="TURN_TIMER"/>
 <constant value="600" name="AVOID_THRESHOLD"/>
-<constant value="400" name="STRAIGHT_TIME"/>
+<constant value="450" name="STRAIGHT_TIME"/>
 <constant value="900" name="HARD_TURN_LIMIT"/>
 <constant value="500" name="AVOID_SPEED"/>
 <constant value="1200" name="BLOCK_DETECT"/>
@@ -211,8 +211,8 @@ sub EnterAvoidRight
 	
 sub EnterAvoidStraight
 	state = AVOID_STRAIGHT
-	motor.left.target = AVOID_SPEED - 150
-	motor.right.target = AVOID_SPEED - 100
+	motor.left.target = AVOID_SPEED - 100
+	motor.right.target = AVOID_SPEED - 150
 	timer.period[1] = STRAIGHT_TIME
 	call leds.circle(0,0,255,255,0,0,255,255)
 	
